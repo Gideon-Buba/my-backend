@@ -1,44 +1,55 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../data-source";
-import { User } from "../entity/User";
-
-export const getUsers = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userRepository = AppDataSource.getRepository(User);
-    const users = await userRepository.find();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
+import { User } from "../models/users";
 
 export const createUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { name, email } = req.body;
-    const userRepository = AppDataSource.getRepository(User);
-    const user = userRepository.create({ name, email });
-    const result = await userRepository.save(user);
-    res.status(201).json(result);
+    const newUser = await User.create(req.body);
+    await newUser.save();
+    res.status(201).json(newUser);
   } catch (error) {
-    res.status(500).json({ error: "Error creating user" });
+    if (error instanceof Error) {
+      res.status(400).json({ error: error.message });
+    } else {
+      res.status(400).json({ error: "An unknown error occurred" });
+    }
   }
 };
 
-export const getUser = async (req: Request, res: Response): Promise<void> => {
+export const getAllUsers = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const { id } = req.params;
-    const userRepository = AppDataSource.getRepository(User);
-    const user = await userRepository.findOne({ where: { id: parseInt(id) } });
+    const users = await User.find();
+    res.status(200).json(users);
+  } catch (error) {
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: "An unknown error occurred" });
+    }
+  }
+};
+
+export const getUserById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const user = await User.findById(req.params.id);
     if (!user) {
       res.status(404).json({ error: "User not found" });
-      return;
     }
-    res.json(user);
+    res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ error: "Error retrieving user" });
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: "An unknown error occurred" });
+    }
   }
 };
 
@@ -47,19 +58,20 @@ export const updateUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
-    const { name, email } = req.body;
-    const userRepository = AppDataSource.getRepository(User);
-    const user = await userRepository.findOne({ where: { id: parseInt(id) } });
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
     if (!user) {
       res.status(404).json({ error: "User not found" });
-      return;
     }
-    userRepository.merge(user, { name, email });
-    const result = await userRepository.save(user);
-    res.json(result);
+    res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ error: "Error updating user" });
+    if (error instanceof Error) {
+      res.status(400).json({ error: error.message });
+    } else {
+      res.status(400).json({ error: "An unknown error occurred" });
+    }
   }
 };
 
@@ -68,15 +80,16 @@ export const deleteUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
-    const userRepository = AppDataSource.getRepository(User);
-    const result = await userRepository.delete({ id: parseInt(id) });
-    if (result.affected === 0) {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
       res.status(404).json({ error: "User not found" });
-      return;
     }
-    res.status(204).send();
+    res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting user" });
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: "An unknown error occurred" });
+    }
   }
 };
